@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,7 +17,14 @@ import (
 	"github.com/itsbryanman/RCLIFT/internal/ui"
 )
 
-var version = "dev"
+var version = "dev" // set by the release build with -ldflags "-X main.version=..."
+
+func init() {
+	// go install …@v0.1.0 doesn't run our ldflags, but Go records the module version
+	if bi, ok := debug.ReadBuildInfo(); ok && version == "dev" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		version = bi.Main.Version
+	}
+}
 
 func main() {
 	bin := flag.String("rclone", "rclone", "path to the rclone binary")
