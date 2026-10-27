@@ -1,0 +1,47 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install rclone
+        run: sudo apt-get update && sudo apt-get install -y rclone
+      - run: go test -race ./...
+
+      - name: Build
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir dist
+          for arch in amd64 arm64; do
+            name="rclift_${TAG}_linux_${arch}"
+            mkdir "$name"
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+              -ldflags "-s -w -X main.version=${TAG}" -o "$name/rclift" ./cmd/rclift
+            cp README.md LICENSE "$name/"
+            tar -czf "dist/$name.tar.gz" "$name"
+          done
+          (cd dist && sha256sum *.tar.gz > checksums.txt)
+
+      - name: Publish
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # release notes are the annotated tag's message
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          git tag -l --format='%(contents)' "$TAG" > notes.md
+          gh release create "$TAG" dist/* --title "$TAG" --notes-file notes.md

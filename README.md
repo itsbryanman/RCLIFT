@@ -1,6 +1,7 @@
 # rclift
 
 [![ci](https://img.shields.io/github/actions/workflow/status/itsbryanman/RCLIFT/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=ci)](https://github.com/itsbryanman/RCLIFT/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/itsbryanman/RCLIFT?style=for-the-badge&logo=github&color=8957E5)](https://github.com/itsbryanman/RCLIFT/releases/latest)
 [![go 1.24](https://img.shields.io/badge/go-1.24-00ADD8?style=for-the-badge&logo=go&logoColor=white)](go.mod)
 [![rclone ≥ 1.60](https://img.shields.io/badge/rclone-%E2%89%A5%201.60-3F79AD?style=for-the-badge&logo=rclone&logoColor=white)](https://rclone.org)
 [![built with bubble tea](https://img.shields.io/badge/built%20with-bubble%20tea-FF5F87?style=for-the-badge)](https://github.com/charmbracelet/bubbletea)
@@ -16,6 +17,15 @@ I got tired of typing `rclone sync gdrive:Some/Long/Path nas:Some/Other/Path`, g
 ## Install
 
 You need [rclone](https://rclone.org/install/) on your `PATH`, with at least one remote set up (`rclone config`). rclift doesn't touch your rclone config; it just shells out to the binary.
+
+Grab a binary from the [releases page](https://github.com/itsbryanman/RCLIFT/releases/latest) (Linux, amd64 and arm64), unpack it, and put `rclift` somewhere on your `PATH`:
+
+```sh
+tar -xzf rclift_v0.1.0_linux_amd64.tar.gz
+sudo mv rclift_v0.1.0_linux_amd64/rclift /usr/local/bin/
+```
+
+If you have Go:
 
 ```sh
 go install github.com/itsbryanman/RCLIFT/cmd/rclift@latest
