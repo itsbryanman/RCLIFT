@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,12 +47,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Local paths are kept absolute so a name like "-x" or "gd:x" in the
+	// current directory can never be mistaken for a flag or a remote.
+	locs := []string{flag.Arg(0), flag.Arg(1)}
+	for i, l := range locs {
+		if l != "" && !rclone.IsRemote(l) {
+			if abs, err := filepath.Abs(l); err == nil {
+				locs[i] = abs
+			}
+		}
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "/"
 	}
 	jm := jobs.New(*concurrency, rc.Run)
-	m := ui.New(rc, jm, cwd, flag.Arg(0), flag.Arg(1))
+	m := ui.New(rc, jm, cwd, locs[0], locs[1])
 	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "rclift:", err)
 		os.Exit(1)

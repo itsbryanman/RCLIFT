@@ -29,7 +29,7 @@ func waitFor(t *testing.T, m *Manager, id int, want Status) Job {
 func TestDoneAndFailed(t *testing.T) {
 	m := New(2, func(_ context.Context, args []string, out func(string)) error {
 		out("hello")
-		if args[1] == "bad:" {
+		if args[len(args)-2] == "bad:" { // source sits just before the destination
 			return errors.New("boom")
 		}
 		return nil

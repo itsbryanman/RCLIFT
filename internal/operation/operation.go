@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/itsbryanman/RCLIFT/internal/rclone"
 )
 
 type Kind string
@@ -23,7 +25,7 @@ type Spec struct {
 }
 
 func (s Spec) Command() []string {
-	a := []string{string(s.Kind), s.Source, s.Destination, "--stats=1s", "--stats-one-line", "--stats-log-level=NOTICE"}
+	a := []string{string(s.Kind), "--stats=1s", "--stats-one-line", "--stats-log-level=NOTICE"}
 	if s.DryRun {
 		a = append(a, "--dry-run")
 	}
@@ -33,7 +35,8 @@ func (s Spec) Command() []string {
 	if s.MaxDelete > 0 {
 		a = append(a, "--max-delete", fmt.Sprint(s.MaxDelete))
 	}
-	return a
+	// "--" so a path can never be read as a flag
+	return append(a, "--", s.Source, s.Destination)
 }
 func (s Spec) Validate() error {
 	if s.Kind != Copy && s.Kind != Move && s.Kind != Sync {
@@ -41,6 +44,9 @@ func (s Spec) Validate() error {
 	}
 	if strings.TrimSpace(s.Source) == "" || strings.TrimSpace(s.Destination) == "" {
 		return fmt.Errorf("source and destination are required")
+	}
+	if strings.HasPrefix(s.Source, "-") || strings.HasPrefix(s.Destination, "-") {
+		return fmt.Errorf("paths may not start with '-'")
 	}
 	if equal(s.Source, s.Destination) {
 		return fmt.Errorf("source and destination are identical")
@@ -58,7 +64,7 @@ func equal(a, b string) bool { return strings.TrimSuffix(a, "/") == strings.Trim
 func nested(a, b string) bool {
 	a = strings.TrimSuffix(a, "/")
 	b = strings.TrimSuffix(b, "/")
-	if strings.Contains(a, ":") || strings.Contains(b, ":") {
+	if rclone.IsRemote(a) || rclone.IsRemote(b) {
 		if strings.HasSuffix(a, ":") {
 			return strings.HasPrefix(b, a) && b != a
 		}

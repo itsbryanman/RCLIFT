@@ -290,3 +290,16 @@ func TestBatchedKeysAreAllHandled(t *testing.T) {
 		t.Fatalf("after \"jj\" selected %q, want nas:", e.Name)
 	}
 }
+
+func TestControlCharactersInNamesAreNeutralised(t *testing.T) {
+	evil := fakeBrowser{"gd:": {{Name: "x\x1b]0;pwned\x07\x1b[2J.txt", Size: 1}}}
+	m := New(evil, jobs.New(1, blockRunner), "/home/me", "gd:", "")
+	m.w, m.h = 100, 30
+	m = apply(t, m, m.load(0))
+	if strings.Contains(m.View(), "]0;pwned") && strings.Contains(m.View(), "\x07") {
+		t.Fatal("OSC sequence from a file name reached the terminal")
+	}
+	if !strings.Contains(m.View(), "x?]0;pwned??[2J.txt") {
+		t.Fatalf("expected escaped name in view")
+	}
+}

@@ -66,3 +66,29 @@ func TestListLocal(t *testing.T) {
 		t.Fatalf("entries = %+v (want dirs first)", es)
 	}
 }
+
+func TestIsRemote(t *testing.T) {
+	for loc, want := range map[string]bool{
+		"gdrive:": true, "gdrive:a/b": true, "my-nas.2:x": true,
+		"/mnt/a:b": false, "./gd:x": false, "photos": false, ":local:": false, "C:\\x": true,
+	} {
+		if got := IsRemote(loc); got != want {
+			t.Errorf("IsRemote(%q) = %v, want %v", loc, got, want)
+		}
+	}
+}
+
+func TestJoinNeverProducesFlagOrRemote(t *testing.T) {
+	for _, name := range []string{"--delete-before", "gd:x"} {
+		got := Join(".", name)
+		if strings.HasPrefix(got, "-") || IsRemote(got) {
+			t.Errorf("Join(\".\", %q) = %q", name, got)
+		}
+	}
+	if got := Join("/mnt/a:b", "c"); got != "/mnt/a:b/c" {
+		t.Errorf("local path with colon joined as %q", got)
+	}
+	if got := Parent("/mnt/a:b/c"); got != "/mnt/a:b" {
+		t.Errorf("Parent of local path with colon = %q", got)
+	}
+}

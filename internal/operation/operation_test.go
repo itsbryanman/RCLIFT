@@ -25,6 +25,8 @@ func TestValidate(t *testing.T) {
 		{"whole remote spelled with slash", Spec{Kind: Sync, Source: "gdrive:backup", Destination: "gdrive:/"}, "nested"},
 		{"whole remote onto itself", Spec{Kind: Sync, Source: "gdrive:", Destination: "gdrive:/"}, "identical"},
 		{"whole remote to another remote", Spec{Kind: Sync, Source: "gdrive:", Destination: "storagebox:gdrive"}, ""},
+		{"flag-looking source", Spec{Kind: Copy, Source: "--delete-before", Destination: "b:"}, "may not start"},
+		{"local dir with colon is local", Spec{Kind: Sync, Source: "/mnt/a:b", Destination: "/mnt/a:b/c"}, "nested"},
 		{"nested local", Spec{Kind: Move, Source: "/data", Destination: "/data/old"}, "nested"},
 		{"negative max delete", Spec{Kind: Sync, Source: "a:", Destination: "b:", MaxDelete: -1}, "negative"},
 	}
@@ -50,6 +52,9 @@ func TestCommand(t *testing.T) {
 		if !slices.Contains(got, want) {
 			t.Errorf("command %v missing %q", got, want)
 		}
+	}
+	if n := len(got); got[n-3] != "--" || got[n-2] != "a:" || got[n-1] != "b:" {
+		t.Errorf("paths must come last, after --: %v", got)
 	}
 	if slices.Contains(Spec{Kind: Copy, Source: "a:", Destination: "b:"}.Command(), "--dry-run") {
 		t.Error("dry-run flag present when not requested")

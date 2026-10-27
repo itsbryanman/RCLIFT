@@ -45,7 +45,7 @@ func (a *Adapter) Remotes(ctx context.Context) ([]string, error) {
 	return lines, nil
 }
 func (a *Adapter) List(ctx context.Context, location string) ([]Entry, error) {
-	b, e := a.command(ctx, "lsjson", "--dirs-only=false", location).Output()
+	b, e := a.command(ctx, "lsjson", "--dirs-only=false", "--", location).Output()
 	if e != nil {
 		return nil, fmt.Errorf("list %q: %w", location, explain(e))
 	}
@@ -88,16 +88,40 @@ func explain(e error) error {
 	}
 	return errors.New(last)
 }
+
+// IsRemote reports whether rclone will read location as "remote:path"
+// rather than a local path: a colon with a plain remote name before it.
+// "/mnt/a:b" and "./a:b" are local.
+func IsRemote(location string) bool {
+	i := strings.Index(location, ":")
+	if i <= 0 {
+		return false
+	}
+	for _, r := range location[:i] {
+		if !(r == '_' || r == '-' || r == '.' || r == ' ' || r == '+' || r == '@' ||
+			r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9') {
+			return false
+		}
+	}
+	return true
+}
 func Join(base, name string) string {
+	if !IsRemote(base) {
+		p := filepath.Join(base, name)
+		if !filepath.IsAbs(p) {
+			p = "." + string(filepath.Separator) + p // never let a name like "-x" or "gd:x" stand alone
+		}
+		return p
+	}
 	if strings.HasSuffix(base, ":") {
 		return base + name
 	}
-	if strings.Contains(base, ":") {
-		return strings.TrimSuffix(base, "/") + "/" + name
-	}
-	return filepath.Join(base, name)
+	return strings.TrimSuffix(base, "/") + "/" + name
 }
 func Parent(path string) string {
+	if !IsRemote(path) {
+		return filepath.Dir(path)
+	}
 	if strings.HasSuffix(path, ":") {
 		return path
 	}
@@ -108,7 +132,7 @@ func Parent(path string) string {
 		}
 		return p[:i+1]
 	}
-	return filepath.Dir(path)
+	return path
 }
 func (a *Adapter) Run(ctx context.Context, args []string, output func(string)) error {
 	c := a.command(ctx, args...)

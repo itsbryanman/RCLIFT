@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -388,12 +389,12 @@ func (m *Model) viewPane(side, width int) string {
 	if header == "" {
 		header = "remotes"
 	}
-	lines := []string{lipgloss.NewStyle().Bold(true).Render(truncateLeft(header, inner))}
+	lines := []string{lipgloss.NewStyle().Bold(true).Render(truncateLeft(safe(header), inner))}
 	switch {
 	case p.loading:
 		lines = append(lines, dimStyle.Render("loading…"))
 	case p.err != nil:
-		lines = append(lines, lipgloss.NewStyle().Foreground(danger).Width(inner).Render(p.err.Error()))
+		lines = append(lines, lipgloss.NewStyle().Foreground(danger).Width(inner).Render(safe(p.err.Error())))
 	case len(p.entries) == 0:
 		lines = append(lines, dimStyle.Render("(empty)"))
 	}
@@ -417,7 +418,7 @@ func (m Model) viewEntry(e rclone.Entry, width int, selected bool) string {
 	} else if !e.IsDir {
 		size = humanSize(e.Size)
 	}
-	name = ansi.Truncate(name, max(1, width-len(size)-1), "…")
+	name = ansi.Truncate(safe(name), max(1, width-len(size)-1), "…")
 	gap := strings.Repeat(" ", max(1, width-ansi.StringWidth(name)-len(size)))
 	if selected {
 		return selStyle.Render(name + gap + size)
@@ -434,7 +435,7 @@ func (m Model) viewPlan() string {
 	label := lipgloss.NewStyle().Foreground(dim).Width(6)
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n\n", lipgloss.NewStyle().Bold(true).Render(verb))
-	fmt.Fprintf(&b, "%s%s\n%s%s\n\n", label.Render("from"), s.Source, label.Render("to"), s.Destination)
+	fmt.Fprintf(&b, "%s%s\n%s%s\n\n", label.Render("from"), safe(s.Source), label.Render("to"), safe(s.Destination))
 	warnColor := warn
 	if s.Kind == operation.Copy {
 		warnColor = dim
@@ -445,9 +446,9 @@ func (m Model) viewPlan() string {
 		dry = "on (nothing will change)"
 	}
 	fmt.Fprintf(&b, "dry run: %s\n\n", dry)
-	b.WriteString(dimStyle.Render("rclone "+strings.Join(s.Command(), " ")) + "\n\n")
+	b.WriteString(dimStyle.Render(safe("rclone "+strings.Join(s.Command(), " "))) + "\n\n")
 	if m.planErr != nil {
-		b.WriteString(lipgloss.NewStyle().Foreground(danger).Render("✗ "+m.planErr.Error()) + "\n" + dimStyle.Render("esc to go back"))
+		b.WriteString(lipgloss.NewStyle().Foreground(danger).Render("✗ "+safe(m.planErr.Error())) + "\n" + dimStyle.Render("esc to go back"))
 	} else {
 		b.WriteString(dimStyle.Render("enter run · d toggle dry run · esc cancel"))
 	}
@@ -491,7 +492,8 @@ func viewJob(j jobs.Job, width int, selected bool) string {
 	if j.Status == jobs.Failed && j.Err != nil && detail == "" {
 		detail = j.Err.Error()
 	}
-	head := fmt.Sprintf("#%-3d %-10s %-9s %s → %s", j.ID, tag, j.Status, j.Spec.Source, j.Spec.Destination)
+	head := fmt.Sprintf("#%-3d %-10s %-9s %s → %s", j.ID, tag, j.Status, safe(j.Spec.Source), safe(j.Spec.Destination))
+	detail = safe(detail)
 	line := ansi.Truncate(head+"  "+detail, width, "…")
 	if selected {
 		return selStyle.Render(line + strings.Repeat(" ", max(0, width-ansi.StringWidth(line))))
@@ -511,6 +513,17 @@ func (m Model) viewStatus() string {
 		help = "↑/↓ pick · x cancel job · esc back"
 	}
 	return dimStyle.Render(ansi.Truncate(help, m.w, "…"))
+}
+
+// safe replaces control characters (ESC, BEL, C1 codes...) in text that came
+// from a remote or from rclone, so a crafted file name can't drive the terminal.
+func safe(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return '?'
+		}
+		return r
+	}, s)
 }
 
 // truncateLeft keeps the end of a path, which is the part people care about.
