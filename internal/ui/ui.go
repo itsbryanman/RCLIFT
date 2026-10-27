@@ -492,13 +492,14 @@ func viewJob(j jobs.Job, width int, selected bool) string {
 	if j.Status == jobs.Failed && j.Err != nil && detail == "" {
 		detail = j.Err.Error()
 	}
+	detail = safe(detail) // before parsing, so neither branch can pass escapes through
 	paths := safe(j.Spec.Source) + " → " + safe(j.Spec.Destination)
 	var line string
 	if p, ok := progress(detail, j.Status == jobs.Running); ok {
 		line = fmt.Sprintf("#%-3d %-10s %-9s %-30s %s", j.ID, tag, j.Status, p, paths)
 	} else {
 		// errors and anything else rclone printed go last, after the paths
-		line = fmt.Sprintf("#%-3d %-10s %-9s %s  %s", j.ID, tag, j.Status, paths, safe(detail))
+		line = fmt.Sprintf("#%-3d %-10s %-9s %s  %s", j.ID, tag, j.Status, paths, detail)
 	}
 	line = ansi.Truncate(line, width, "…")
 	if selected {

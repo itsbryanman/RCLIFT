@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -316,3 +317,16 @@ func TestProgress(t *testing.T) {
 		t.Error("an error line was parsed as progress")
 	}
 }
+
+func TestProgressLineCannotCarryEscapes(t *testing.T) {
+	j := jobs.Job{ID: 1, Status: jobs.Running, Spec: operation.Spec{Kind: operation.Copy, Source: "a:", Destination: "b:"},
+		Output: "1 MiB / 2 MiB, 50%, 1 \x1b]0;pwned\x07MiB/s, ETA \x1b[2J5s\n"}
+	if line := viewJob(j, 200, false); strings.ContainsAny(stripStyles(line), "\x1b\x07") {
+		t.Fatalf("escape reached the job line: %q", line)
+	}
+}
+
+// stripStyles removes the SGR colour codes lipgloss adds, leaving anything else.
+func stripStyles(s string) string { return sgr.ReplaceAllString(s, "") }
+
+var sgr = regexp.MustCompile("\x1b\\[[0-9;]*m")
