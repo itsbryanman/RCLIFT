@@ -303,3 +303,16 @@ func TestControlCharactersInNamesAreNeutralised(t *testing.T) {
 		t.Fatalf("expected escaped name in view")
 	}
 }
+
+func TestProgress(t *testing.T) {
+	line := "25.027 MiB / 61.035 MiB, 41%, 5.000 MiB/s, ETA 7s"
+	if got, _ := progress(line, true); got != "41% · 5.000 MiB/s · ETA 7s" {
+		t.Errorf("running: %q", got)
+	}
+	if got, _ := progress(line, false); got != "25.027 MiB" {
+		t.Errorf("finished: %q", got)
+	}
+	if _, ok := progress("Failed to copy: directory not found", true); ok {
+		t.Error("an error line was parsed as progress")
+	}
+}

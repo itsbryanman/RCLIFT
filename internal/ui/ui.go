@@ -492,9 +492,15 @@ func viewJob(j jobs.Job, width int, selected bool) string {
 	if j.Status == jobs.Failed && j.Err != nil && detail == "" {
 		detail = j.Err.Error()
 	}
-	head := fmt.Sprintf("#%-3d %-10s %-9s %s → %s", j.ID, tag, j.Status, safe(j.Spec.Source), safe(j.Spec.Destination))
-	detail = safe(detail)
-	line := ansi.Truncate(head+"  "+detail, width, "…")
+	paths := safe(j.Spec.Source) + " → " + safe(j.Spec.Destination)
+	var line string
+	if p, ok := progress(detail, j.Status == jobs.Running); ok {
+		line = fmt.Sprintf("#%-3d %-10s %-9s %-30s %s", j.ID, tag, j.Status, p, paths)
+	} else {
+		// errors and anything else rclone printed go last, after the paths
+		line = fmt.Sprintf("#%-3d %-10s %-9s %s  %s", j.ID, tag, j.Status, paths, safe(detail))
+	}
+	line = ansi.Truncate(line, width, "…")
 	if selected {
 		return selStyle.Render(line + strings.Repeat(" ", max(0, width-ansi.StringWidth(line))))
 	}
@@ -536,6 +542,22 @@ func truncateLeft(s string, width int) string {
 		r = r[1:]
 	}
 	return "…" + string(r)
+}
+
+// rclone's one-line stats: "25.027 MiB / 61.035 MiB, 41%, 5.000 MiB/s, ETA 7s"
+var statsLine = regexp.MustCompile(`^([\d.]+ ?\S*B) / [\d.]+ ?\S*B, (\d+%), ([\d.]+ ?\S*/s), ETA (\S+)`)
+
+// progress shortens a stats line to the parts worth a glance: percent, speed
+// and ETA while running, total size once finished.
+func progress(detail string, running bool) (string, bool) {
+	m := statsLine.FindStringSubmatch(detail)
+	if m == nil {
+		return "", false
+	}
+	if running {
+		return m[2] + " · " + m[3] + " · ETA " + m[4], true
+	}
+	return m[1], true
 }
 
 var logPrefix = regexp.MustCompile(`^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d \w+\s*:\s*`)
